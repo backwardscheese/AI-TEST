@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESL Roleplay (AI with Voice)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    #chat {
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      height: 65vh;
+      overflow-y: auto;
+    }
+    .message {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 8px;
+      line-height: 1.4em;
+    }
+    .ai {
+      background: #e6f7ff;
+      text-align: left;
+    }
+    .student {
+      background: #d9f7be;
+      text-align: right;
+    }
+    #inputArea {
+      display: flex;
+      margin-top: 15px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #userInput {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-left: 10px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      background: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    #scenarioSelect {
+      margin: 10px auto;
+      display: block;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2 style="text-align:center;">🗣️ ESL Roleplay with AI (Elementary Level)</h2>
+
+<select id="scenarioSelect" onchange="resetChat()">
+  <option value="restaurant">🍔 Restaurant</option>
+  <option value="hotel">🏨 Hotel Check-in</option>
+  <option value="airport">✈️ Airport Immigration</option>
+</select>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+  <input id="userInput" type="text" placeholder="Type or use mic 🎤..."/>
+  <button onclick="sendMessage()">Send</button>
+  <button onclick="startListening()">🎤 Speak</button>
+</div>
+
+<script>
+  const chat = document.getElementById('chat');
+  let currentScenario = "restaurant";
+
+  // Scenario prompts
+  const scenarios = {
+    restaurant: "You are a friendly waiter in an American restaurant. Speak clearly and simply. Use short sentences. Correct grammar gently. Encourage the student.",
+    hotel: "You are a hotel receptionist in New York. Speak simply and slowly. Help the student check in. Correct mistakes kindly. Use short sentences.",
+    airport: "You are an immigration officer at an American airport. Ask simple questions. Speak slowly. If the student makes mistakes, correct them kindly."
+  };
+
+  // Initialize chat
+  resetChat();
+
+  function resetChat() {
+    currentScenario = document.getElementById("scenarioSelect").value;
+    chat.innerHTML = "";
+    let startMessage = "";
+    if (currentScenario === "restaurant") {
+      startMessage = "👩‍🍳 Waiter: Hello! Welcome to our restaurant. What would you like to order?";
+    } else if (currentScenario === "hotel") {
+      startMessage = "👩‍💼 Receptionist: Welcome to our hotel. Do you have a reservation?";
+    } else if (currentScenario === "airport") {
+      startMessage = "👮 Officer: Hello. What is the purpose of your visit?";
+    }
+    addMessage("ai", startMessage);
+    speakText(startMessage);
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if (text === '') return;
+
+    addMessage('student', text);
+    input.value = '';
+
+    // Call AI backend
+    const reply = await getAIResponse(text);
+    addMessage('ai', reply);
+    speakText(reply);
+  }
+
+  function addMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  async function getAIResponse(userMessage) {
+    const API_KEY = "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"; // ⬅️ Insert your API key here
+    const url = "https://api.openai.com/v1/chat/completions";
+
+    const messages = [
+      {
+        role: "system",
+        content: scenarios[currentScenario] + 
+                 " Keep sentences very short (5–10 words). Use easy English for a Japanese 6th grader."
+      },
+      { role: "user", content: userMessage }
+    ];
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: messages,
+          temperature: 0.7
+        })
+      });
+
+      const data = await response.json();
+      return "👩‍🍳 " + data.choices[0].message.content.trim();
+    } catch (err) {
+      console.error(err);
+      return "❌ Sorry, there was an error connecting to the AI.";
+    }
+  }
+
+  // 🎤 Speech-to-Text
+  function startListening() {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Sorry, speech recognition is not supported in this browser.");
+      return;
+    }
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.start();
+
+    recognition.onresult = function(event) {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('userInput').value = transcript;
+      sendMessage();
+    };
+  }
+
+  // 🔊 Text-to-Speech
+  function speakText(text) {
+    if (!window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text.replace(/👩‍🍳|👩‍💼|👮/g, ""));
+    utterance.lang = "en-US";
+    utterance.rate = 0.9; // slower for learners
+    window.speechSynthesis.speak(utterance);
+  }
+</script>
+
+</body>
+</html>
