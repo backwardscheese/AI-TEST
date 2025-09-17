@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESL Roleplay Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
+    .user { color: blue; }
+    .bot { color: green; }
+    select, input, button { margin: 5px 0; }
+  </style>
+</head>
+<body>
+  <h1>ESL Roleplay Practice</h1>
+
+  <label for="role">Choose your role:</label>
+  <select id="role">
+    <option value="student">Student</option>
+    <option value="teacher">Teacher</option>
+    <option value="shopkeeper">Shopkeeper</option>
+    <option value="friend">Friend</option>
+  </select>
+
+  <div id="chat"></div>
+  <input type="text" id="message" placeholder="Type your message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    const chat = document.getElementById("chat");
+    let messages = [
+      { role: "system", content: "You are helping a Japanese 6th grade ESL learner. Keep responses simple and short." }
+    ];
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = "en-US";
+        speechSynthesis.speak(utter);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("message");
+      const roleChoice = document.getElementById("role").value;
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Show user message
+      chat.innerHTML += `<div class="user">You (${roleChoice}): ${text}</div>`;
+      messages.push({ role: "user", content: `I am acting as a ${roleChoice}. ${text}` });
+
+      // Send to backend
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      });
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || "Error: No response";
+
+      // Show AI reply
+      chat.innerHTML += `<div class="bot">AI: ${reply}</div>`;
+      chat.scrollTop = chat.scrollHeight;
+
+      // Speak reply
+      speak(reply);
+
+      // Save AI message in history
+      messages.push({ role: "assistant", content: reply });
+
+      input.value = "";
+    }
+  </script>
+</body>
+</html>
